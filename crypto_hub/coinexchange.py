@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from crypto_hub.order_book import LimitOrderBook
+from crypto_hub.constants import BID, ASK
 
 
 class CoinExchange(object):
@@ -60,12 +62,12 @@ class CoinExchange(object):
 
         return quotes
 
-    def convert_book_frame_to_orders(self, book_frame):
+    def convert_book_frame_to_order_book(self, book_frame):
         side_map = {
-            'buy': 'bid',
-            'sell': 'ask'
+            'buy': BID,
+            'sell': ASK
         }
-        orders = []
+        book = LimitOrderBook()
         for idx, row in book_frame.iterrows():
             order = {
                 'type': 'limit',
@@ -75,7 +77,7 @@ class CoinExchange(object):
                 'timestamp': row.OrderTime,
                 'side': side_map[row.Type]
             }
-            orders.append(order)
-        return orders
+            book.process_order(order)
+        return book
 
 
