@@ -17,3 +17,13 @@ ORDER_SIDES = {
     'buy': BID,
     'sell': ASK
 }
+
+GDAX_PAIRS = [
+    'BTC-USD',
+    'ETH-USD',
+    'LTC-USD',
+    'BCH-USD',
+    'BCH-BTC',
+    'LTC-BTC',
+    'ETH-BTC',
+]

@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from gdax import WebsocketClient
 
+from crypto_hub.constants import GDAX_PAIRS
 from crypto_hub.gdax.gdax_book import GDAXOrderBook
-from crypto_hub.gdax.gdax_client import GDAX_PAIRS
 from crypto_hub.gdax.public_client import PublicGDAXClient
 
 
