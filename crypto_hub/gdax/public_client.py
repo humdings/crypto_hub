@@ -30,6 +30,10 @@ class PublicGDAXClient(PublicClient):
         )
         return parse_gdax_history_to_frame(response)
 
+    def get_quote(self, product_id):
+        quote = self.public_client.get_product_ticker(product_id)
+        return pd.Series(convert_quote(quote))
+
 
 def parse_gdax_history_to_frame(raw_response):
     df = pd.DataFrame(columns=['low', 'high', 'open', 'close', 'volume'])

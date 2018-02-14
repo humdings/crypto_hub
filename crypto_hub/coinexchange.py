@@ -27,7 +27,7 @@ class CoinExchange(object):
     @property
     def markets(self):
         """
-        Joins the summary and markets api calls into a DatFrame
+        Joins the summary and markets api calls into a DataFrame
         :return: DataFrame indexed by market id.
         """
         now = pd.Timestamp.utcnow()
@@ -39,20 +39,6 @@ class CoinExchange(object):
             self._last_refresh = now
         return self._data
 
-    def fetch_markets(self):
-        result = pd.read_json(self._markets_url)
-        markets = pd.DataFrame([i for i in result.result.values])
-        int_cols = ['MarketID', 'BaseCurrencyID', 'MarketAssetID']
-        markets.loc[:, int_cols] = markets.loc[:, int_cols].astype(np.int)
-        markets.index = markets.pop('MarketID')
-        return markets
-
-    def fetch_summaries(self):
-        result = pd.read_json(self._summary_url)
-        frame = pd.DataFrame([i for i in result.result.values])  # .astype(np.float)
-        frame.index = frame.pop('MarketID').astype(np.int)
-        return frame.astype(np.float)
-
     def get_order_book(self, quote_currency='HODL', base_currency='BTC', market_id=None):
         if market_id is None:
             if quote_currency is None:
@@ -63,6 +49,20 @@ class CoinExchange(object):
         for order in orders:
             book.process_order(order)
         return book
+
+    def fetch_markets(self):
+        result = pd.read_json(self._markets_url)
+        markets = pd.DataFrame([i for i in result.result.values])
+        int_cols = ['MarketID', 'BaseCurrencyID', 'MarketAssetID']
+        markets.loc[:, int_cols] = markets.loc[:, int_cols].astype(np.int)
+        markets.index = markets.pop('MarketID')
+        return markets
+
+    def fetch_summaries(self):
+        result = pd.read_json(self._summary_url)
+        frame = pd.DataFrame([i for i in result.result.values])
+        frame.index = frame.pop('MarketID').astype(np.int)
+        return frame.astype(np.float)
 
     def _fetch_book_orders(self, market_id):
         url = self._book_url.format(market_id)

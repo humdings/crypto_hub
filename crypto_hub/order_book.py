@@ -38,6 +38,26 @@ class LimitOrderBook(object):
         self.bid_max = self.price_to_level(tick_size)
         self.fills = []
 
+    @property
+    def book_frame(self):
+        levels = {
+            level: {
+                side: sum(order['quantity'] for order in quotes[side])
+                for side in quotes
+            }
+            for level, quotes in iteritems(self.book)
+        }
+        df = pd.DataFrame(levels).T
+        df[df <= 0] = np.nan
+        return df
+
+    @property
+    def cumulative_book_frame(self):
+        sizes = self.book_frame
+        bids = sizes.bid.iloc[-1::-1].cumsum().iloc[-1::-1]
+        asks = sizes.ask.cumsum()
+        return pd.DataFrame({BID: bids, ASK: asks})
+
     def price_to_level(self, price):
         """
         :param price: float
@@ -247,22 +267,3 @@ class LimitOrderBook(object):
         if self.ask_min > level:
             self.ask_min = level
         return self._trade_nonce
-
-    def get_size_frame(self):
-        levels = {
-            level: {
-                side: sum(order['quantity'] for order in quotes[side])
-                for side in quotes
-            }
-            for level, quotes in iteritems(self.book)
-        }
-        df = pd.DataFrame(levels).T
-        df[df <= 0] = np.nan
-        return df
-
-    def get_cumulative_sizes(self, sizes=None):
-        if sizes is None:
-            sizes = self.get_size_frame()
-        bids = sizes.bid.iloc[-1::-1].cumsum().iloc[-1::-1]
-        asks = sizes.ask.cumsum()
-        return pd.DataFrame({BID: bids, ASK: asks})
