@@ -4,6 +4,12 @@ from crypto_hub.order_book import LimitOrderBook
 from crypto_hub.constants import BID, ASK
 
 
+ORDER_SIDES = {
+    'buy': BID,
+    'sell': ASK
+}
+
+
 class CoinExchange(object):
     """
     Implements coinexchange.io API
@@ -47,37 +53,39 @@ class CoinExchange(object):
         frame.index = frame.pop('MarketID').astype(np.int)
         return frame.astype(np.float)
 
-    def get_order_book(self, market_id=316):
-        url = self._book_url.format(market_id)
-        result = pd.read_json(url).result
-        buys = pd.DataFrame([i for i in result['BuyOrders']])
-        sells = pd.DataFrame([i for i in result['SellOrders']])
-        quotes = buys.append(sells)
-        order_times = quotes.OrderTime.apply(lambda dt: pd.Timestamp(dt, tz='utc'))
-        quotes['OrderTime'] = order_times
-        quotes.sort_values(by='OrderTime', inplace=True)
-        quotes.index = range(quotes.shape[0])
-        float_cols = ['Price', 'Quantity']
-        quotes[float_cols] = quotes[float_cols].astype(np.float)
-
-        return quotes
-
-    def convert_book_frame_to_order_book(self, book_frame):
-        side_map = {
-            'buy': BID,
-            'sell': ASK
-        }
+    def get_order_book(self, quote_currency='HODL', base_currency='BTC', market_id=None):
+        if market_id is None:
+            if quote_currency is None:
+                raise ValueError('Must pass market_id or the quote/base currencies')
+            market_id = self.lookup_market_id(quote_currency, base_currency)
+        orders = self._fetch_book_orders(market_id)
         book = LimitOrderBook()
-        for idx, row in book_frame.iterrows():
-            order = {
-                'type': 'limit',
-                'order_id': idx,
-                'price': row.Price,
-                'quantity': row.Quantity,
-                'timestamp': row.OrderTime,
-                'side': side_map[row.Type]
-            }
+        for order in orders:
             book.process_order(order)
         return book
+
+    def _fetch_book_orders(self, market_id):
+        url = self._book_url.format(market_id)
+        result = pd.read_json(url).result
+        orders = result.loc['BuyOrders']
+        orders.extend(result.loc['SellOrders'])
+        for i, order in enumerate(orders):
+            order['dt'] = pd.Timestamp(order.pop('OrderTime'), tz='utc')
+            order['price'] = float(order.pop('Price'))
+            order['quantity'] = float(order.pop('Quantity'))
+            order['side'] = ORDER_SIDES[order.pop('Type')]
+            order['order_id'] = i
+        return sorted(orders, key=lambda x: pd.Timestamp(x['dt']))
+
+    def lookup_market_id(self, quote_currency, base_currency='BTC'):
+        mask = self.markets['MarketAssetCode'] == quote_currency.upper()
+        mask &= (self.markets['BaseCurrencyCode'] == base_currency.upper())
+        result = mask.index[mask]
+        hits = len(result)
+        if hits > 1:
+            raise ValueError('Multiple pairs for {}/{}'.format(quote_currency, base_currency))
+        elif hits < 1:
+            return None
+        return result[0]
 
 

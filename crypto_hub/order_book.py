@@ -19,7 +19,7 @@ class LimitOrderBook(object):
     Orders are mutable mappings with the following minimum structure.
         {
             'order_id': hashable identifier,
-            'quantity': int,
+            'quantity': float/int,
             'side': str, bid/ask flag,
             'price': float, limit price (defaults to min/max prices)
         }
