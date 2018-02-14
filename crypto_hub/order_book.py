@@ -25,35 +25,34 @@ class LimitOrderBook(object):
         }
 
     Warning:
-        Order quantities are modified in place so pass as copy if they're need elsewhere.
+        Order quantities are modified in place so pass copies if they're needed elsewhere.
     """
 
     def __init__(self, tick_size=SATOSHI, max_price=1e9):
         self.tick_size = tick_size
-        self.book = {}
+        self._book = {}
         self._orders_by_id = {}
         self._trade_nonce = 0
         self.max_level = self.price_to_level(max_price)
-        self.ask_min = self.price_to_level(max_price)
-        self.bid_max = self.price_to_level(tick_size)
+        self._ask_min = self.price_to_level(max_price)
+        self._bid_max = self.price_to_level(tick_size)
         self.fills = []
 
     @property
-    def book_frame(self):
-        levels = {
+    def book(self):
+        frame = pd.DataFrame({
             level: {
                 side: sum(order['quantity'] for order in quotes[side])
                 for side in quotes
             }
-            for level, quotes in iteritems(self.book)
-        }
-        df = pd.DataFrame(levels).T
-        df[df <= 0] = np.nan
-        return df
+            for level, quotes in iteritems(self._book)
+        }).T
+        frame[frame <= 0] = np.nan
+        return frame
 
     @property
-    def cumulative_book_frame(self):
-        sizes = self.book_frame
+    def cumulative_book(self):
+        sizes = self.book
         bids = sizes.bid.iloc[-1::-1].cumsum().iloc[-1::-1]
         asks = sizes.ask.cumsum()
         return pd.DataFrame({BID: bids, ASK: asks})
@@ -82,11 +81,11 @@ class LimitOrderBook(object):
             copy of the best bid in the book.
             None if no bid exists.
         """
-        bids = self.side_at_level(self.bid_max, BID)
+        bids = self.side_at_level(self._bid_max, BID)
         if not bids:
-            if self.bid_max < self.tick_size:
+            if self._bid_max < self.tick_size:
                 return None
-            self.bid_max -= 1
+            self._bid_max -= 1
             return self.best_bid()
         return bids[0].copy()
 
@@ -96,18 +95,18 @@ class LimitOrderBook(object):
             copy of the best ask in the book.
             None if no ask exists.
         """
-        asks = self.side_at_level(self.ask_min, ASK)
+        asks = self.side_at_level(self._ask_min, ASK)
         if not asks:
-            if self.ask_min > self.max_level:
+            if self._ask_min > self.max_level:
                 return None
-            self.ask_min += 1
+            self._ask_min += 1
             return self.best_ask()
         return asks[0].copy()
 
     def get_level(self, level):
-        if level not in self.book:
-            self.book[level] = {BID: deque(), ASK: deque()}
-        return self.book[level]
+        if level not in self._book:
+            self._book[level] = {BID: deque(), ASK: deque()}
+        return self._book[level]
 
     def side_at_level(self, level, side):
         books = self.get_level(level)
@@ -185,14 +184,14 @@ class LimitOrderBook(object):
         price = order['price']
         level = self.price_to_level(price)
 
-        if level >= self.ask_min:
+        if level >= self._ask_min:
             # Fill orders
-            while level > self.ask_min:
-                ask_min = self.ask_min
-                if ask_min not in self.book:
+            while level > self._ask_min:
+                ask_min = self._ask_min
+                if ask_min not in self._book:
                     # Skip this process if the level hasn't been visited.
                     # This speeds up search and avoids memory overhead.
-                    self.ask_min += 1
+                    self._ask_min += 1
                     continue
                 quantity = order['quantity']
                 orders_to_fill = self.side_at_level(ask_min, ASK)
@@ -214,29 +213,29 @@ class LimitOrderBook(object):
                     self.relay_fill(quantity, order)
                     self._trade_nonce += 1
                     return self._trade_nonce
-                self.ask_min += 1
+                self._ask_min += 1
         # Insert unfilled order into book
         buy_orders = self.side_at_level(level, BID)
         buy_orders.append(order)
         order_id = order.get('order_id')
         if order_id is not None:
             self._orders_by_id[order_id] = order
-        if self.bid_max < level:
-            self.bid_max = level
+        if self._bid_max < level:
+            self._bid_max = level
         return self._trade_nonce
 
     def process_sell(self, order):
         assert order['side'] == ASK
         price = order['price']
         level = self.price_to_level(price)
-        if level <= self.bid_max:
+        if level <= self._bid_max:
             # Fill orders
-            while level <= self.bid_max:
-                bid_max = self.bid_max
-                if bid_max not in self.book:
+            while level <= self._bid_max:
+                bid_max = self._bid_max
+                if bid_max not in self._book:
                     # Skip this process if the level hasn't been visited.
                     # This speeds up search and avoids memory overhead.
-                    self.bid_max -= 1
+                    self._bid_max -= 1
                     continue
                 quantity = order['quantity']
                 orders_to_fill = self.side_at_level(bid_max, BID)
@@ -258,12 +257,12 @@ class LimitOrderBook(object):
                     self.relay_fill(quantity, order)
                     self._trade_nonce += 1
                     return self._trade_nonce
-                self.bid_max -= 1
+                self._bid_max -= 1
         sell_orders = self.side_at_level(level, ASK)
         sell_orders.append(order)
         order_id = order.get('order_id')
         if order_id is not None:
             self._orders_by_id[order_id] = order
-        if self.ask_min > level:
-            self.ask_min = level
+        if self._ask_min > level:
+            self._ask_min = level
         return self._trade_nonce
