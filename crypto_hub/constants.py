@@ -1,5 +1,5 @@
 
-# Constants to keep the order book protocol consistent.
+# Constants used in the order book protocol.
 
 SATOSHI = 0.00000001
 ORDER_ID = 'order_id'
@@ -9,6 +9,7 @@ ASK = 'ask'
 SIZE = 'size'
 SIDE = 'side'
 PRICE = 'price'
+TIMESTAMP = 'dt'
 
 ORDER_SIDES = {
     BID: BID,

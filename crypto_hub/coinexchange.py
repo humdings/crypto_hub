@@ -1,13 +1,10 @@
 import pandas as pd
 import numpy as np
 from crypto_hub.order_book import LimitOrderBook
-from crypto_hub.constants import BID, ASK
-
-
-ORDER_SIDES = {
-    'buy': BID,
-    'sell': ASK
-}
+from crypto_hub.constants import (
+    PRICE, SIDE, SIZE, TIMESTAMP,
+    ORDER_ID, ORDER_SIDES
+)
 
 
 class CoinExchange(object):
@@ -70,16 +67,17 @@ class CoinExchange(object):
         orders = result.loc['BuyOrders']
         orders.extend(result.loc['SellOrders'])
         for i, order in enumerate(orders):
-            order['dt'] = pd.Timestamp(order.pop('OrderTime'), tz='utc')
-            order['price'] = float(order.pop('Price'))
-            order['quantity'] = float(order.pop('Quantity'))
-            order['side'] = ORDER_SIDES[order.pop('Type')]
-            order['order_id'] = i
-        return sorted(orders, key=lambda x: pd.Timestamp(x['dt']))
+            order[ORDER_ID] = i
+            # Not actually sure if these are utc but meh for now
+            order[TIMESTAMP] = pd.Timestamp(order.pop('OrderTime'), tz='utc')
+            order[PRICE] = float(order.pop('Price'))
+            order[SIZE] = float(order.pop('Quantity'))
+            order[SIDE] = ORDER_SIDES[order.pop('Type')]
+        return sorted(orders, key=lambda order: order[TIMESTAMP])
 
     def lookup_market_id(self, quote_currency, base_currency='BTC'):
         mask = self.markets['MarketAssetCode'] == quote_currency.upper()
-        mask &= (self.markets['BaseCurrencyCode'] == base_currency.upper())
+        mask &= self.markets['BaseCurrencyCode'] == base_currency.upper()
         result = mask.index[mask]
         hits = len(result)
         if hits > 1:
