@@ -1,10 +1,10 @@
+from six import iteritems
 from collections import deque
 
 import numpy as np
 import pandas as pd
-from six import iteritems
 
-from crypto_hub.constants import SATOSHI, BID, ASK
+from crypto_hub.constants import SATOSHI, BID, ASK, SIZE, PRICE, ORDER_ID, SIDE
 
 
 class LimitOrderBook(object):
@@ -19,9 +19,11 @@ class LimitOrderBook(object):
     Orders are mutable mappings with the following minimum structure.
         {
             'order_id': hashable identifier,
-            'quantity': float/int,
+            'price': float, limit price (defaults to min/max prices),
+            'size': float/int,
             'side': str, bid/ask flag,
-            'price': float, limit price (defaults to min/max prices)
+
+            actual keys are defined in crypto_hub.constants
         }
 
     Warning:
@@ -42,7 +44,7 @@ class LimitOrderBook(object):
     def book(self):
         frame = pd.DataFrame({
             level: {
-                side: sum(order['quantity'] for order in quotes[side])
+                side: sum(order[SIZE] for order in quotes[side])
                 for side in quotes
             }
             for level, quotes in iteritems(self._book)
@@ -126,10 +128,10 @@ class LimitOrderBook(object):
         order = self._orders_by_id.pop(order_id, None)
         if order is None:
             return
-        level = self.price_to_level(order['price'])
-        side = order['side']
+        level = self.price_to_level(order[PRICE])
+        side = order[SIDE]
         order_list = self.side_at_level(level, side)
-        order['quantity'] = 0
+        order[SIZE] = 0
         try:
             order_list.remove(order)
         except ValueError:
@@ -148,12 +150,12 @@ class LimitOrderBook(object):
         :return: int
             trade nonce, incremented if a fill occured.
         """
-        side = order['side']
-        if 'price' not in order:
+        side = order[SIDE]
+        if PRICE not in order:
             if side == BID:
-                order['price'] = self.level_to_price(self.max_level)
+                order[PRICE] = self.level_to_price(self.max_level)
             else:
-                order['price'] = self.tick_size
+                order[PRICE] = self.tick_size
         if side == BID:
             return self.process_buy(order)
         elif side == ASK:
@@ -180,8 +182,8 @@ class LimitOrderBook(object):
         :return: int
             trade nonce, incremented if a fill occurred.
         """
-        assert order['side'] == BID
-        price = order['price']
+        assert order[SIDE] == BID
+        price = order[PRICE]
         level = self.price_to_level(price)
 
         if level >= self._ask_min:
@@ -193,22 +195,22 @@ class LimitOrderBook(object):
                     # This speeds up search and avoids memory overhead.
                     self._ask_min += 1
                     continue
-                quantity = order['quantity']
+                quantity = order[SIZE]
                 orders_to_fill = self.side_at_level(ask_min, ASK)
                 if orders_to_fill:
                     book_entry = orders_to_fill[0]
-                    if book_entry['quantity'] <= quantity:
+                    if book_entry[SIZE] <= quantity:
                         # Clear a resting order
-                        amount = book_entry['quantity']
-                        order['quantity'] -= amount
-                        book_entry['quantity'] = 0
+                        amount = book_entry[SIZE]
+                        order[SIZE] -= amount
+                        book_entry[SIZE] = 0
                         fill = orders_to_fill.popleft()
                         self.relay_fill(amount, fill)
                         self.relay_fill(amount, order)
                         continue
                     # Partially fill a resting order
-                    order['quantity'] -= quantity
-                    book_entry['quantity'] -= quantity
+                    order[SIZE] -= quantity
+                    book_entry[SIZE] -= quantity
                     self.relay_fill(quantity, book_entry)
                     self.relay_fill(quantity, order)
                     self._trade_nonce += 1
@@ -217,7 +219,7 @@ class LimitOrderBook(object):
         # Insert unfilled order into book
         buy_orders = self.side_at_level(level, BID)
         buy_orders.append(order)
-        order_id = order.get('order_id')
+        order_id = order.get(ORDER_ID)
         if order_id is not None:
             self._orders_by_id[order_id] = order
         if self._bid_max < level:
@@ -225,8 +227,8 @@ class LimitOrderBook(object):
         return self._trade_nonce
 
     def process_sell(self, order):
-        assert order['side'] == ASK
-        price = order['price']
+        assert order[SIDE] == ASK
+        price = order[PRICE]
         level = self.price_to_level(price)
         if level <= self._bid_max:
             # Fill orders
@@ -237,22 +239,22 @@ class LimitOrderBook(object):
                     # This speeds up search and avoids memory overhead.
                     self._bid_max -= 1
                     continue
-                quantity = order['quantity']
+                quantity = order[SIZE]
                 orders_to_fill = self.side_at_level(bid_max, BID)
                 if orders_to_fill:
                     book_entry = orders_to_fill[0]
-                    if book_entry['quantity'] <= quantity:
+                    if book_entry[SIZE] <= quantity:
                         # Order clears the resting order
-                        amount = book_entry['quantity']
-                        book_entry['quantity'] = 0
-                        order['quantity'] -= amount
+                        amount = book_entry[SIZE]
+                        book_entry[SIZE] = 0
+                        order[SIZE] -= amount
                         fill = orders_to_fill.popleft()
                         self.relay_fill(amount, fill)
                         self.relay_fill(amount, order)
                         continue
                     # Partially fill a resting order
-                    order['quantity'] -= quantity
-                    book_entry['quantity'] -= quantity
+                    order[SIZE] -= quantity
+                    book_entry[SIZE] -= quantity
                     self.relay_fill(quantity, book_entry)
                     self.relay_fill(quantity, order)
                     self._trade_nonce += 1
@@ -260,7 +262,7 @@ class LimitOrderBook(object):
                 self._bid_max -= 1
         sell_orders = self.side_at_level(level, ASK)
         sell_orders.append(order)
-        order_id = order.get('order_id')
+        order_id = order.get(ORDER_ID)
         if order_id is not None:
             self._orders_by_id[order_id] = order
         if self._ask_min > level:
