@@ -15,11 +15,8 @@ class GDAXAuthClient(AuthenticatedClient):
         key = key or os.environ.get('GDAX_API_KEY')
         b64secret = b64secret or os.environ.get('GDAX_API_SECRET')
         passphrase = passphrase or os.environ.get('GDAX_PASSPHRASE')
-        super(AuthenticatedClient, self).__init__(
-            key=key,
-            b64secret=b64secret,
-            passphrase=passphrase,
+        super(GDAXAuthClient, self).__init__(
+            key, b64secret, passphrase,
             api_url=api_url,
             timeout=timeout
         )
-
