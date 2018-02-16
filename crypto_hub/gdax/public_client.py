@@ -30,9 +30,9 @@ class PublicGDAXClient(PublicClient):
         )
         return parse_gdax_history_to_frame(response)
 
-    def get_quote(self, product_id):
-        quote = self.public_client.get_product_ticker(product_id)
-        return pd.Series(convert_quote(quote))
+    def get_product_ticker(self, product_id):
+        quote = super(PublicGDAXClient, self).get_product_ticker(product_id)
+        return pd.Series(parse_gdax_quote(quote))
 
 
 def parse_gdax_history_to_frame(raw_response):
@@ -42,3 +42,11 @@ def parse_gdax_history_to_frame(raw_response):
         df.loc[dt] = row[1:]
     df[df < SATOSHI] = np.nan
     return df.sort_index()
+
+
+def parse_gdax_quote(quote):
+    for name in ('ask', 'bid', 'price', 'size', 'volume'):
+        quote[name] = np.float(quote[name])
+    quote['time'] = pd.Timestamp(quote['time'])
+    return quote
+
