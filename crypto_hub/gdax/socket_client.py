@@ -28,6 +28,10 @@ class GDAXSocketClient(WebsocketClient):
             for product in self.products
         }
 
+    @property
+    def public_client(self):
+        return self._public_client
+
     def on_message(self, msg):
         self.books[msg['product_id']].on_message(msg)
         super(GDAXSocketClient, self).on_message(msg)
