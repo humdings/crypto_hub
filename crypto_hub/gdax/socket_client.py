@@ -13,10 +13,11 @@ class GDAXSocketClient(WebsocketClient):
     for each pair subscribed to.
     """
 
-    def __init__(self, products=GDAX_PAIRS, mongo_collection=None, **kwargs):
+    def __init__(self, products=GDAX_PAIRS, mongo_collection=None, should_print=False, **kwargs):
         super(GDAXSocketClient, self).__init__(
             products=products,
             mongo_collection=mongo_collection,
+            should_print=should_print,
             **kwargs
         )
         self._public_client = PublicGDAXClient()
