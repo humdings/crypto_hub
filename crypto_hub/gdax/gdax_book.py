@@ -27,10 +27,9 @@ class GDAXOrderBook(object):
 
     def on_open(self):
         self._sequence = -1
-        print("-- Subscribed to OrderBook! --\n")
 
     def on_close(self):
-        print("\n-- OrderBook Socket Closed! --")
+        pass
 
     def reset_book(self):
         self._asks = RBTree()
