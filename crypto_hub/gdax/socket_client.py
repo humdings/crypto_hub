@@ -5,6 +5,9 @@ from gdax import WebsocketClient
 from crypto_hub.constants import GDAX_PAIRS
 from crypto_hub.gdax.gdax_book import GDAXOrderBook
 from crypto_hub.gdax.public_client import PublicGDAXClient
+import logbook
+
+log = logbook.Logger(__name__)
 
 
 class GDAXSocketClient(WebsocketClient):
@@ -34,7 +37,11 @@ class GDAXSocketClient(WebsocketClient):
         return self._public_client
 
     def on_message(self, msg):
-        self.books[msg['product_id']].on_message(msg)
+        try:
+            self.books[msg['product_id']].on_message(msg)
+        except KeyError:
+            log.error("KeyError in msg: {}".format(msg))
+
         super(GDAXSocketClient, self).on_message(msg)
 
     def get_bid(self, product):

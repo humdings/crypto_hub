@@ -22,11 +22,9 @@ class GDAXClient(object):
         self.socket_client = socket_client
         self.public_client = socket_client.public_client
 
-    def account_values_in_base_currency(self, accounts=None, quotes=None, base_currency='BTC'):
-        if accounts is None:
-            accounts = self.auth_client.get_accounts()
-        if quotes is None:
-            quotes = self.socket_client.get_bids()
+    def account_values_in_base_currency(self, base_currency='BTC'):
+        accounts = self.auth_client.get_accounts()
+        quotes = self.socket_client.get_bids()
         values = pd.Series(0.0, index=accounts.index)
         for currency, row in accounts.iterrows():
             amount = row.balance
