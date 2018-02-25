@@ -12,15 +12,13 @@ class GDAXAuthClient(AuthenticatedClient):
     environment variables if they are not passed at initialization.
     """
 
-    def __init__(self, key=None, b64secret=None, passphrase=None,
-                 api_url="https://api.gdax.com", timeout=30):
+    def __init__(self, key=None, b64secret=None, passphrase=None, api_url="https://api.gdax.com"):
         key = key or os.environ.get('GDAX_API_KEY')
         b64secret = b64secret or os.environ.get('GDAX_API_SECRET')
         passphrase = passphrase or os.environ.get('GDAX_PASSPHRASE')
         super(GDAXAuthClient, self).__init__(
             key, b64secret, passphrase,
             api_url=api_url,
-            timeout=timeout
         )
 
     def get_accounts(self):
